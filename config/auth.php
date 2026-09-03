@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\OrganizationUser;
 use App\Models\User;
 
 return [
@@ -67,6 +68,11 @@ return [
             'model' => env('AUTH_MODEL', User::class),
         ],
 
+        'organization_users' => [
+            'driver' => 'eloquent',
+            'model' => OrganizationUser::class,
+        ],
+
         // 'users' => [
         //     'driver' => 'database',
         //     'table' => 'users',
@@ -98,6 +104,17 @@ return [
             'table' => env('AUTH_PASSWORD_RESET_TOKEN_TABLE', 'password_reset_tokens'),
             'expire' => 60,
             'throttle' => 60,
+        ],
+
+        'organization_users' => [
+            'provider' => 'organization_users',
+            'connection' => env('IDENTITY_DB_CONNECTION', env('DB_CONNECTION', 'central')),
+            'table' => env(
+                'ORGANIZATION_USER_PASSWORD_RESET_TOKEN_TABLE',
+                'organization_user_password_reset_tokens',
+            ),
+            'expire' => (int) env('ORGANIZATION_USER_PASSWORD_RESET_EXPIRE', 60),
+            'throttle' => (int) env('ORGANIZATION_USER_PASSWORD_RESET_THROTTLE', 60),
         ],
     ],
 
