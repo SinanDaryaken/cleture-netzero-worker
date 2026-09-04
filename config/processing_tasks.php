@@ -1,8 +1,10 @@
 <?php
 
+use App\ProcessingTasks\Definitions\Emission\EmissionCandidateIngestTaskDefinition;
 use App\ProcessingTasks\Definitions\Identity\EmailVerificationTaskDefinition;
 use App\ProcessingTasks\Definitions\Identity\PasswordChangedTaskDefinition;
 use App\ProcessingTasks\Definitions\Identity\PasswordResetTaskDefinition;
+use App\ProcessingTasks\Definitions\Tenancy\TenantProvisionTaskDefinition;
 use App\ProcessingTasks\ProcessingTaskRouter;
 
 return [
@@ -25,6 +27,15 @@ return [
     ],
 
     'contracts' => [
+        ProcessingTaskRouter::EMISSION_CANDIDATE_INGEST => [
+            1 => [
+                'definition' => EmissionCandidateIngestTaskDefinition::class,
+                'queue' => env('EMISSION_CANDIDATE_INGEST_QUEUE', 'emission-candidate-ingest'),
+                'lease_seconds' => 330,
+                'max_attempts' => 5,
+                'backoff_seconds' => [30, 120, 300, 900, 1800],
+            ],
+        ],
         ProcessingTaskRouter::EMAIL_VERIFICATION => [
             1 => [
                 'definition' => EmailVerificationTaskDefinition::class,
@@ -53,6 +64,15 @@ return [
             2 => [
                 'definition' => PasswordChangedTaskDefinition::class,
                 'queue' => 'identity-mails',
+            ],
+        ],
+        ProcessingTaskRouter::TENANT_PROVISION => [
+            1 => [
+                'definition' => TenantProvisionTaskDefinition::class,
+                'queue' => env('TENANT_PROVISIONING_QUEUE', 'tenant-provisioning'),
+                'lease_seconds' => 330,
+                'max_attempts' => 5,
+                'backoff_seconds' => [30, 120, 300, 900, 1800],
             ],
         ],
     ],

@@ -156,13 +156,15 @@ class ProcessingTaskConsumer
 
     private function archiveExpiredTask(Connection $connection, ProcessingTask $task): void
     {
+        $this->router->failed($connection, $task);
+
         $connection->table((string) config('processing_tasks.tables.failures'))->insert([
             'id' => (string) Str::uuid7(),
             'task_id' => $task->id,
             'type' => $task->type,
             'payload_version' => $task->payloadVersion,
             'tenant_id' => $task->tenantId,
-            'payload' => json_encode($this->router->safeFailurePayload($task), JSON_THROW_ON_ERROR),
+            'payload' => json_encode((object) $this->router->safeFailurePayload($task), JSON_THROW_ON_ERROR),
             'dedupe_key' => 'sha256:'.hash('sha256', $task->dedupeKey),
             'attempts' => $task->attempts,
             'error_code' => 'lease_attempts_exhausted',

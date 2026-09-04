@@ -47,6 +47,36 @@ return [
             'sslmode' => env('DB_SSLMODE', 'prefer'),
         ],
 
+        'tenant_provisioner' => [
+            'driver' => 'pgsql',
+            'url' => env('TENANT_PROVISIONER_DB_URL'),
+            'host' => env('TENANT_PROVISIONER_DB_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('TENANT_PROVISIONER_DB_PORT', env('DB_PORT', '5432')),
+            'database' => env('TENANT_PROVISIONER_DB_DATABASE', 'postgres'),
+            'username' => env('TENANT_PROVISIONER_DB_USERNAME'),
+            'password' => env('TENANT_PROVISIONER_DB_PASSWORD'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('TENANT_PROVISIONER_DB_SSLMODE', env('DB_SSLMODE', 'prefer')),
+        ],
+
+        'tenant_template' => [
+            'driver' => 'pgsql',
+            'url' => env('TENANT_RUNTIME_DB_URL'),
+            'host' => env('TENANT_RUNTIME_DB_HOST', env('DB_HOST', '127.0.0.1')),
+            'port' => env('TENANT_RUNTIME_DB_PORT', env('DB_PORT', '5432')),
+            'database' => env('TENANT_RUNTIME_DB_DATABASE', 'postgres'),
+            'username' => env('TENANT_RUNTIME_DB_USERNAME'),
+            'password' => env('TENANT_RUNTIME_DB_PASSWORD'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'search_path' => 'public',
+            'sslmode' => env('TENANT_RUNTIME_DB_SSLMODE', env('DB_SSLMODE', 'prefer')),
+        ],
+
         'sqlite' => [
             'driver' => 'sqlite',
             'url' => env('DB_URL'),

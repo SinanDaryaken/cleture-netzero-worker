@@ -3,18 +3,24 @@
 namespace App\ProcessingTasks;
 
 use App\ProcessingTasks\Contracts\ProcessingTaskDefinition;
+use App\ProcessingTasks\Contracts\ProcessingTaskLifecycle;
 use App\ProcessingTasks\Exceptions\PermanentProcessingTaskException;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Database\Connection;
 use LogicException;
 
 class ProcessingTaskRouter
 {
     public const EMAIL_VERIFICATION = 'organization-user.email-verification';
 
+    public const EMISSION_CANDIDATE_INGEST = 'emission.candidate.ingest';
+
     public const PASSWORD_CHANGED = 'organization-user.password-changed';
 
     public const PASSWORD_RESET = 'organization-user.password-reset';
+
+    public const TENANT_PROVISION = 'tenant.provision';
 
     public function __construct(private Container $container) {}
 
@@ -97,6 +103,24 @@ class ProcessingTaskRouter
         }
     }
 
+    public function starting(Connection $connection, ProcessingTask $task): void
+    {
+        $lifecycle = $this->lifecycleFor($task);
+        $lifecycle?->starting($connection, $task);
+    }
+
+    public function completed(Connection $connection, ProcessingTask $task): void
+    {
+        $lifecycle = $this->lifecycleFor($task);
+        $lifecycle?->completed($connection, $task);
+    }
+
+    public function failed(Connection $connection, ProcessingTask $task): void
+    {
+        $lifecycle = $this->lifecycleFor($task);
+        $lifecycle?->failed($connection, $task);
+    }
+
     private function definitionFor(string $type, int $payloadVersion): ProcessingTaskDefinition
     {
         $contract = $this->contractFor($type, $payloadVersion);
@@ -107,6 +131,13 @@ class ProcessingTaskRouter
         }
 
         return $this->container->make($definitionClass);
+    }
+
+    private function lifecycleFor(ProcessingTask $task): ?ProcessingTaskLifecycle
+    {
+        $definition = $this->definitionFor($task->type, $task->payloadVersion);
+
+        return $definition instanceof ProcessingTaskLifecycle ? $definition : null;
     }
 
     /** @return array{definition: class-string<ProcessingTaskDefinition>, queue: string, max_attempts?: int, lease_seconds?: int, backoff_seconds?: list<int>} */

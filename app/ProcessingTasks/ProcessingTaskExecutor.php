@@ -135,19 +135,29 @@ class ProcessingTaskExecutor
                     'updated_at' => $now,
                 ]);
 
-            return $this->fromRow($row, $attempts);
+            $task = $this->fromRow($row, $attempts);
+            $this->router->starting($connection, $task);
+
+            return $task;
         });
     }
 
     private function complete(ProcessingTask $task, string $dispatchToken): void
     {
-        $this->connection()
-            ->table((string) config('processing_tasks.tables.tasks'))
-            ->where('id', $task->id)
-            ->where('status', 'processing')
-            ->where('dispatch_token', $dispatchToken)
-            ->where('claimed_by', $this->workerIdentity->value())
-            ->delete();
+        $connection = $this->connection();
+
+        $connection->transaction(function () use ($connection, $task, $dispatchToken): void {
+            if ($this->lockCurrentExecution($connection, $task->id, $dispatchToken) === null) {
+                return;
+            }
+
+            $this->router->completed($connection, $task);
+
+            $connection->table((string) config('processing_tasks.tables.tasks'))
+                ->where('id', $task->id)
+                ->where('dispatch_token', $dispatchToken)
+                ->delete();
+        });
     }
 
     private function retryOrArchive(ProcessingTask $task, string $dispatchToken): void
@@ -254,6 +264,8 @@ class ProcessingTaskExecutor
         string $errorSummary,
         array $safePayload,
     ): void {
+        $this->router->failed($connection, $task);
+
         $connection->table((string) config('processing_tasks.tables.failures'))->insert([
             'id' => (string) Str::uuid7(),
             'task_id' => $task->id,

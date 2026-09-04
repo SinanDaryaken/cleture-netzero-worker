@@ -11,6 +11,10 @@ class ProcessProcessingTask implements ShouldQueue
 {
     use Queueable;
 
+    public int $timeout = 300;
+
+    public bool $failOnTimeout = true;
+
     public function __construct(
         public readonly string $processingTaskId,
         public readonly string $dispatchToken,

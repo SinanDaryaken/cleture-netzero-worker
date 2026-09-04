@@ -34,7 +34,7 @@ class ProcessingTaskConsumerTest extends TestCase
             'queue.connections.database.after_commit' => false,
         ]);
 
-        foreach (['jobs', 'processing_task_failures', 'processing_tasks', 'organization_users'] as $table) {
+        foreach (['jobs', 'processing_task_failures', 'processing_tasks', 'tenants', 'organization_users'] as $table) {
             Schema::dropIfExists($table);
         }
 
@@ -60,6 +60,7 @@ class ProcessingTaskConsumerTest extends TestCase
         return [
             'unknown type' => ['organization-user.unknown', 1],
             'unknown payload version' => ['organization-user.email-verification', 3],
+            'candidate ingest v2' => ['emission.candidate.ingest', 2],
         ];
     }
 
@@ -159,6 +160,56 @@ class ProcessingTaskConsumerTest extends TestCase
         $this->assertDatabaseCount('jobs', 1);
     }
 
+    public function test_pending_tenant_provisioning_task_is_routed_to_its_own_queue(): void
+    {
+        $tenantId = (string) Str::uuid7();
+        $taskId = $this->insertTask(
+            'tenant.provision',
+            [],
+            dedupeKey: "tenant:{$tenantId}:provision",
+            tenantId: $tenantId,
+        );
+
+        $result = app(ProcessingTaskConsumer::class)->consume(10);
+
+        $this->assertSame(1, $result->claimed);
+        $this->assertSame(1, $result->enqueued);
+        $this->assertDatabaseHas('processing_tasks', [
+            'id' => $taskId,
+            'tenant_id' => $tenantId,
+            'status' => 'queued',
+        ]);
+        $this->assertSame('tenant-provisioning', DB::table('jobs')->value('queue'));
+    }
+
+    public function test_pending_candidate_ingest_task_is_routed_to_the_emission_queue(): void
+    {
+        $packageId = (string) Str::uuid7();
+        $artifactSha256 = str_repeat('a', 64);
+        $taskId = $this->insertTask(
+            'emission.candidate.ingest',
+            [
+                'package_id' => $packageId,
+                'storage_profile' => 'atlas.candidate_ingress',
+                'object_key' => "sha256/{$artifactSha256}.zip",
+                'object_version_id' => 'object-version-1',
+                'expected_sha256' => $artifactSha256,
+            ],
+            dedupeKey: "emission-candidate:{$packageId}:ingest",
+        );
+
+        $result = app(ProcessingTaskConsumer::class)->consume(10);
+
+        $this->assertSame(1, $result->claimed);
+        $this->assertSame(1, $result->enqueued);
+        $this->assertDatabaseHas('processing_tasks', [
+            'id' => $taskId,
+            'tenant_id' => null,
+            'status' => 'queued',
+        ]);
+        $this->assertSame('emission-candidate-ingest', DB::table('jobs')->value('queue'));
+    }
+
     public function test_expired_processing_task_is_redispatched_without_incrementing_domain_attempts(): void
     {
         $organizationUser = OrganizationUser::factory()->create();
@@ -210,6 +261,41 @@ class ProcessingTaskConsumerTest extends TestCase
         $this->assertDatabaseCount('jobs', 0);
     }
 
+    public function test_expired_tenant_task_after_maximum_attempts_marks_tenant_failed(): void
+    {
+        $tenantId = (string) Str::uuid7();
+        DB::table('tenants')->insert([
+            'id' => $tenantId,
+            'organization_id' => (string) Str::uuid7(),
+            'provisioning_status' => 'provisioning',
+            'active' => false,
+            'schema_version' => null,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $taskId = $this->insertTask(
+            'tenant.provision',
+            [],
+            dedupeKey: "tenant:{$tenantId}:provision",
+            status: 'processing',
+            attempts: 5,
+            leaseExpiresAt: now()->subSecond(),
+            dispatchToken: (string) Str::uuid7(),
+            dispatchedAt: now()->subMinutes(2),
+            tenantId: $tenantId,
+        );
+
+        $result = app(ProcessingTaskConsumer::class)->consume(10);
+
+        $this->assertSame(1, $result->failed);
+        $this->assertDatabaseMissing('processing_tasks', ['id' => $taskId]);
+        $this->assertDatabaseHas('tenants', [
+            'id' => $tenantId,
+            'provisioning_status' => 'failed',
+            'active' => false,
+        ]);
+    }
+
     public function test_queue_write_failure_rolls_back_the_queued_state(): void
     {
         $organizationUser = OrganizationUser::factory()->create();
@@ -233,7 +319,7 @@ class ProcessingTaskConsumerTest extends TestCase
         ]);
     }
 
-    /** @param array<string, string> $payload */
+    /** @param array<string, mixed> $payload */
     private function insertTask(
         string $type,
         array $payload,
@@ -244,6 +330,7 @@ class ProcessingTaskConsumerTest extends TestCase
         int $payloadVersion = 1,
         ?string $dispatchToken = null,
         mixed $dispatchedAt = null,
+        ?string $tenantId = null,
     ): string {
         $taskId = (string) Str::uuid7();
         $claimedAt = $status === 'processing' ? now()->subMinute() : null;
@@ -252,7 +339,7 @@ class ProcessingTaskConsumerTest extends TestCase
             'id' => $taskId,
             'type' => $type,
             'payload_version' => $payloadVersion,
-            'tenant_id' => null,
+            'tenant_id' => $tenantId,
             'payload' => json_encode($payload, JSON_THROW_ON_ERROR),
             'dedupe_key' => $dedupeKey,
             'status' => $status,
@@ -296,6 +383,14 @@ class ProcessingTaskConsumerTest extends TestCase
             $table->timestampTz('claimed_at')->nullable();
             $table->timestampTz('lease_expires_at')->nullable();
             $table->string('claimed_by')->nullable();
+            $table->timestampsTz();
+        });
+        Schema::create('tenants', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->uuid('organization_id')->unique();
+            $table->string('provisioning_status');
+            $table->boolean('active');
+            $table->string('schema_version')->nullable();
             $table->timestampsTz();
         });
         Schema::create('processing_task_failures', function (Blueprint $table): void {
