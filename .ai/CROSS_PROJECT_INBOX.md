@@ -87,6 +87,17 @@ This file records the review and implementation status of instructions received 
 - Explicit boundary: Admin's complete candidate validation and canonical bulk-write contract is not present in Worker and no additional ownership or dependency was approved. A fully verified artifact is therefore archived with the safe permanent code `candidate_staging_contract_requires_decision`, while the package remains `received`; Worker does not falsely mark it `staged` or invent canonical writes.
 - Status: Approved and implemented through verified artifact staging boundary; automated verification passed. Deployment still must provide read-only object-store configuration and subscribe the runtime worker to `emission-candidate-ingest`.
 
+### 2026-09-05 — Atlas main 35b82db / Admin V2 durable staging coordination
+
+- Source: Atlas main commit `35b82db` follow-up delegated from project task `01a06d80-9ff9-76e0-987b-438ea57810bb` at the project owner's explicit request for record-only intake.
+- Related entry: `2026-09-04 — Atlas–ADEME candidate-package ingest v1` above. That completed v1 verification boundary must not be reimplemented or treated as authorization for a v1 downgrade.
+- Pending dependency: Atlas will develop independent validation and package orchestration after `35b82db`. Worker coordination requires the Admin V2 candidate-intake contract, a compatible durable staging writer, and idempotent full-snapshot staging proof.
+- Required contract coverage: Define the entity, findings, and source-diff staging behavior; define the policy for a zero-record relationships member; and preserve explicit retry behavior for transient failures plus permanent handling for validation failures.
+- Ownership boundary: Candidate acceptance is not publication. The canonical publish decision remains Admin-owned.
+- Delivery gate: Atlas delivery must remain closed until Admin V2 intake and Worker durable staging are verified together. No V1 downgrade is permitted.
+- Current state: Dependency recorded only. Worker development, tests, deployment, and rollout have not started.
+- Status: Pending (BEKLEYEN).
+
 ## Entry template
 
 ### YYYY-MM-DD — Short title
