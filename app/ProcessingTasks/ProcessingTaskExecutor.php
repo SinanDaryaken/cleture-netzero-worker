@@ -71,7 +71,6 @@ class ProcessingTaskExecutor
             }
 
             $task = $this->fromRow($row);
-
             Log::error('Processing task transport exhausted its retries.', [
                 'processing_task_id' => $task->id,
                 'type' => $task->type,
@@ -120,6 +119,7 @@ class ProcessingTaskExecutor
             }
 
             $attempts = (int) $row->attempts + 1;
+            $leaseExpiresAt = $now->copy()->addSeconds($this->router->leaseSecondsFor($this->fromRow($row, $attempts)));
 
             $connection->table((string) config('processing_tasks.tables.tasks'))
                 ->where('id', $taskId)
@@ -128,9 +128,7 @@ class ProcessingTaskExecutor
                     'status' => 'processing',
                     'attempts' => $attempts,
                     'claimed_at' => $now,
-                    'lease_expires_at' => $now->copy()->addSeconds(
-                        $this->router->leaseSecondsFor($this->fromRow($row, $attempts)),
-                    ),
+                    'lease_expires_at' => $leaseExpiresAt,
                     'claimed_by' => $this->workerIdentity->value(),
                     'updated_at' => $now,
                 ]);
@@ -147,7 +145,7 @@ class ProcessingTaskExecutor
         $connection = $this->connection();
 
         $connection->transaction(function () use ($connection, $task, $dispatchToken): void {
-            if ($this->lockCurrentExecution($connection, $task->id, $dispatchToken) === null) {
+            if ($this->lockCurrentExecution($connection, $task, $dispatchToken) === null) {
                 return;
             }
 
@@ -165,7 +163,7 @@ class ProcessingTaskExecutor
         $connection = $this->connection();
 
         $connection->transaction(function () use ($connection, $task, $dispatchToken): void {
-            $row = $this->lockCurrentExecution($connection, $task->id, $dispatchToken);
+            $row = $this->lockCurrentExecution($connection, $task, $dispatchToken);
 
             if ($row === null) {
                 return;
@@ -206,7 +204,7 @@ class ProcessingTaskExecutor
             $errorSummary,
             $safePayload,
         ): void {
-            if ($this->lockCurrentExecution($connection, $task->id, $dispatchToken) === null) {
+            if ($this->lockCurrentExecution($connection, $task, $dispatchToken) === null) {
                 return;
             }
 
@@ -221,18 +219,14 @@ class ProcessingTaskExecutor
         });
     }
 
-    private function lockCurrentExecution(
-        Connection $connection,
-        string $taskId,
-        string $dispatchToken,
-    ): ?stdClass {
-        return $connection->table((string) config('processing_tasks.tables.tasks'))
-            ->where('id', $taskId)
-            ->where('status', 'processing')
-            ->where('dispatch_token', $dispatchToken)
+    private function lockCurrentExecution(Connection $connection, ProcessingTask $task, string $dispatchToken): ?stdClass
+    {
+        $query = $connection->table((string) config('processing_tasks.tables.tasks'))
+            ->where('id', $task->id)->where('status', 'processing')->where('dispatch_token', $dispatchToken)
             ->where('claimed_by', $this->workerIdentity->value())
-            ->lockForUpdate()
-            ->first();
+            ->where('attempts', $task->attempts);
+
+        return $query->lockForUpdate()->first();
     }
 
     private function releaseLockedTask(

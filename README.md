@@ -1,3 +1,5 @@
+Current Worker scope: identity mail and tenant provisioning/maintenance. The owner retired emission.candidate.ingest on 2026-09-08; Atlas now sends prepared factors directly to Admin. Historical central schema and task data are not deleted by this code cleanup.
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">

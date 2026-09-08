@@ -18,3 +18,6 @@ The worker consumes the central `processing_tasks` table but never owns or runs 
 - The task remains canonical until the domain work finishes. Delete it only after success; on retryable failure return it to `pending` with backoff; on permanent or exhausted failure write a safe `processing_task_failures` snapshot and delete the active task in one transaction.
 - A stale transport job must not change task state when its dispatch token no longer matches.
 - Unsupported task type and payload-version pairs stay pending and are not dispatched. Register new work through the configured contract definition and queue instead of adding type-specific branches to the dispatcher or executor.
+
+
+Emission package continuation was retired by owner approval on 2026-09-08. Preserve dispatch-token and attempt fencing for remaining tasks; use the existing attempts/backoff lifecycle.

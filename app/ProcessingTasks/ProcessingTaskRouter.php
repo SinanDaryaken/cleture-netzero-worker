@@ -14,8 +14,6 @@ class ProcessingTaskRouter
 {
     public const EMAIL_VERIFICATION = 'organization-user.email-verification';
 
-    public const EMISSION_CANDIDATE_INGEST = 'emission.candidate.ingest';
-
     public const PASSWORD_CHANGED = 'organization-user.password-changed';
 
     public const PASSWORD_RESET = 'organization-user.password-reset';

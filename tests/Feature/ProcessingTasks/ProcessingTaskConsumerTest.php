@@ -60,7 +60,8 @@ class ProcessingTaskConsumerTest extends TestCase
         return [
             'unknown type' => ['organization-user.unknown', 1],
             'unknown payload version' => ['organization-user.email-verification', 3],
-            'candidate ingest v2' => ['emission.candidate.ingest', 2],
+            'retired candidate ingest v1' => ['emission.candidate.ingest', 1],
+            'retired candidate ingest v2' => ['emission.candidate.ingest', 2],
         ];
     }
 
@@ -182,7 +183,7 @@ class ProcessingTaskConsumerTest extends TestCase
         $this->assertSame('tenant-provisioning', DB::table('jobs')->value('queue'));
     }
 
-    public function test_pending_candidate_ingest_task_is_routed_to_the_emission_queue(): void
+    public function test_retired_candidate_task_is_preserved_without_dispatch(): void
     {
         $packageId = (string) Str::uuid7();
         $artifactSha256 = str_repeat('a', 64);
@@ -200,14 +201,15 @@ class ProcessingTaskConsumerTest extends TestCase
 
         $result = app(ProcessingTaskConsumer::class)->consume(10);
 
-        $this->assertSame(1, $result->claimed);
-        $this->assertSame(1, $result->enqueued);
+        $this->assertSame(0, $result->claimed);
+        $this->assertSame(0, $result->enqueued);
         $this->assertDatabaseHas('processing_tasks', [
             'id' => $taskId,
             'tenant_id' => null,
-            'status' => 'queued',
+            'status' => 'pending',
         ]);
-        $this->assertSame('emission-candidate-ingest', DB::table('jobs')->value('queue'));
+        $this->assertDatabaseCount('jobs', 0);
+        $this->assertDatabaseCount('processing_task_failures', 0);
     }
 
     public function test_expired_processing_task_is_redispatched_without_incrementing_domain_attempts(): void

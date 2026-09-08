@@ -60,20 +60,6 @@ return [
             'report' => false,
         ],
 
-        'candidate_ingress' => [
-            'driver' => 's3',
-            'key' => env('CANDIDATE_INGRESS_ACCESS_KEY_ID'),
-            'secret' => env('CANDIDATE_INGRESS_SECRET_ACCESS_KEY'),
-            'region' => env('CANDIDATE_INGRESS_REGION', 'us-east-1'),
-            'bucket' => env('CANDIDATE_INGRESS_BUCKET'),
-            'url' => env('CANDIDATE_INGRESS_URL'),
-            'endpoint' => env('CANDIDATE_INGRESS_ENDPOINT'),
-            'use_path_style_endpoint' => env('CANDIDATE_INGRESS_USE_PATH_STYLE_ENDPOINT', false),
-            'stream_reads' => true,
-            'throw' => true,
-            'report' => false,
-        ],
-
     ],
 
     /*

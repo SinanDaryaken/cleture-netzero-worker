@@ -2,8 +2,6 @@
 
 namespace App\Providers;
 
-use App\Contracts\ProcessingTasks\Emission\CandidateArtifactStreamProvider;
-use App\ProcessingTasks\Emission\LaravelFilesystemCandidateArtifactStreamProvider;
 use App\ProcessingTasks\WorkerIdentity;
 use App\Tenancy\Contracts\TenantDatabaseProvisioner;
 use App\Tenancy\Contracts\TenantSchemaMigrator;
@@ -18,10 +16,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(
-            CandidateArtifactStreamProvider::class,
-            LaravelFilesystemCandidateArtifactStreamProvider::class,
-        );
         $this->app->singleton(WorkerIdentity::class);
         $this->app->singleton(PostgreSqlTenantDatabaseProvisioner::class);
         $this->app->bind(
